@@ -103,7 +103,7 @@ if (httpsServer) {
   console.warn("  SSL certificates not found. Run: npm run generate-cert");
 }
 
-console.log("\n Demo Instructions:");
+console.log("\nDemo Instructions:");
 console.log("1. Test with HTTP: http://localhost:3000");
 console.log(
   "2. Test with HTTPS: https://localhost:3443 (accept the self-signed certificate warning)",
