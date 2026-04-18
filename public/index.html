@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HTTP vs HTTPS Demo</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header id="header">
+        <h1>HTTP vs HTTPS Security Demo</h1>
+        <p>
+          Compare how form data is transmitted over insecure HTTP and protected
+          HTTPS channels.
+        </p>
+        <p id="status-badge" class="badge">Checking protocol...</p>
+        <div class="hero-actions">
+          <a href="/anim" class="button primary">Open Animation Demo</a>
+          <a id="protocol-link" href="#" class="button protocol-button"
+            >Open HTTPS version</a
+          >
+        </div>
+      </header>
+
+      <main>
+        <div class="forms-container">
+          <div class="card">
+            <h2>Login</h2>
+            <form action="/api/login" method="POST">
+              <div class="form-group">
+                <label for="login-email">Email</label>
+                <input
+                  type="email"
+                  name="email"
+                  id="login-email"
+                  required
+                  placeholder="demo@example.com"
+                />
+              </div>
+              <div class="form-group">
+                <label for="login-password">Password</label>
+                <input
+                  type="password"
+                  name="password"
+                  id="login-password"
+                  required
+                  placeholder="demo123"
+                />
+              </div>
+              <button type="submit">Login</button>
+            </form>
+          </div>
+
+          <div class="card">
+            <h2>Sign Up</h2>
+            <form action="/api/signup" method="POST">
+              <div class="form-group">
+                <label for="signup-email">Email</label>
+                <input
+                  type="email"
+                  name="email"
+                  id="signup-email"
+                  required
+                  placeholder="new@example.com"
+                />
+              </div>
+              <div class="form-group">
+                <label for="signup-password">Password</label>
+                <input
+                  type="password"
+                  name="password"
+                  id="signup-password"
+                  required
+                  placeholder="password123"
+                />
+              </div>
+              <button type="submit" class="secondary">Sign Up</button>
+            </form>
+          </div>
+        </div>
+
+        <div class="info-section">
+          <h2>Comparison</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Feature</th>
+                <th>HTTP (Port 3000)</th>
+                <th>HTTPS (Port 3443)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Encryption</td>
+                <td class="danger">None</td>
+                <td class="success">SSL/TLS</td>
+              </tr>
+              <tr>
+                <td>Password Visibility</td>
+                <td class="danger">Plain text</td>
+                <td class="success">Encrypted</td>
+              </tr>
+              <tr>
+                <td>MITM Attack</td>
+                <td class="danger">Vulnerable</td>
+                <td class="success">Protected</td>
+              </tr>
+            </tbody>
+          </table>
+          <p>
+            <strong>Instructions:</strong> Open Wireshark to capture the
+            loopback adapter (lo0). Search for "http" in the Wireshark filter.
+            Submit the form above and look at the "HTML Form URL Encoded"
+            section of the HTTP POST packet to see plain text data!
+          </p>
+        </div>
+      </main>
+    </div>
+    <script src="app.js"></script>
+  </body>
+</html>

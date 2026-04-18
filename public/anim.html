@@ -1,0 +1,804 @@
+<!doctype html>
+<html lang="en" class="bg-slate-50 h-full overflow-hidden m-0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Visualization - The MITM Key Swap</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & ReactDOM -->
+    <script
+      crossorigin
+      src="https://unpkg.com/react@18/umd/react.development.js"
+    ></script>
+    <script
+      crossorigin
+      src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"
+    ></script>
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+      .packet {
+        transition:
+          left 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+          background-color 0.4s ease-in-out;
+      }
+    </style>
+  </head>
+  <body
+    class="h-full w-full text-slate-800 antialiased flex flex-col justify-center items-center py-4 px-2 sm:px-4"
+  >
+    <div
+      class="w-full max-w-4xl mx-auto mb-4 flex justify-between items-center"
+    >
+      <a
+        href="/"
+        class="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+      >
+        ← Back to Demo
+      </a>
+    </div>
+    <div
+      id="root"
+      class="w-full max-w-4xl mx-auto flex flex-col justify-center h-[90%] max-h-[700px] min-h-[500px]"
+    ></div>
+
+    <script type="text/babel">
+      const { useState } = React;
+
+      const App = () => {
+        const [mode, setMode] = useState("http");
+        const [step, setStep] = useState(0);
+
+        // Flow configuration
+        const scenarios = {
+          http: [
+            {
+              title: "Idle State",
+              desc: "Unencrypted HTTP Connection. Ready to send data.",
+              packet: null,
+            },
+            {
+              title: "Client Sends Plaintext",
+              desc: "Client sends user password 'demo123' across the wire in plaintext.",
+              pos: "20%",
+              packet: "demo123",
+              packetColor: "bg-white border-slate-300",
+            },
+            {
+              title: "MITM Interception",
+              desc: "The Man-In-The-Middle sees the exact plaintext! Password is stolen.",
+              pos: "50%",
+              packet: "demo123",
+              packetColor: "bg-red-100 border-red-300",
+              hackerSees: "demo123",
+            },
+            {
+              title: "Server Receives",
+              desc: "The data reaches the Server, but the secret is already compromised.",
+              pos: "80%",
+              packet: "demo123",
+              packetColor: "bg-white border-slate-300",
+              hackerSees: "demo123",
+            },
+          ],
+          encrypt: [
+            {
+              title: "Idle State",
+              desc: "Encryption ONLY (No Certificates).",
+              packet: null,
+            },
+            {
+              title: "Server Sends Public Key",
+              desc: "Server sends its Public Key to start encryption. But wait...",
+              pos: "80%",
+              packet: (
+                <span className="flex items-center gap-1.5">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth="1.5"
+                    stroke="currentColor"
+                    className="w-4 h-4 shrink-0"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"
+                    />
+                  </svg>{" "}
+                  <span>SrvPubKey</span>
+                </span>
+              ),
+              packetColor: "bg-emerald-50 border-emerald-200",
+            },
+            {
+              title: "MITM Discards & Replaces Key!",
+              desc: "Hacker blocks the Server's key, saves it, and sends THEIR OWN Fake Key to the client!",
+              pos: "50%",
+              packet: (
+                <span className="flex items-center gap-1.5">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth="1.5"
+                    stroke="currentColor"
+                    className="w-4 h-4 shrink-0"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"
+                    />
+                  </svg>{" "}
+                  <span>Fake Key</span>
+                </span>
+              ),
+              packetColor: "bg-red-100 border-red-300",
+              hackerSees: "Has SrvPubKey",
+            },
+            {
+              title: "Client Fooled",
+              desc: "Client receives the Fake Key. Without a CA, it trusts the key blindly.",
+              pos: "20%",
+              packet: (
+                <span className="flex items-center gap-1.5">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth="1.5"
+                    stroke="currentColor"
+                    className="w-4 h-4 shrink-0"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"
+                    />
+                  </svg>{" "}
+                  <span>Fake Key</span>
+                </span>
+              ),
+              packetColor: "bg-orange-50 border-orange-200",
+              hackerSees: "Has SrvPubKey",
+            },
+            {
+              title: "Client Encrypts to Hacker",
+              desc: "Client encrypts password using the HACKER'S fake key.",
+              pos: "20%",
+              packet: (
+                <span className="flex items-center gap-1.5">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth="1.5"
+                    stroke="currentColor"
+                    className="w-4 h-4 shrink-0"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
+                    />
+                  </svg>{" "}
+                  <span>[demo123]</span>
+                </span>
+              ),
+              packetColor: "bg-orange-50 border-orange-200",
+              hackerSees: "Has SrvPubKey",
+            },
+            {
+              title: "Hacker Decrypts & Views!",
+              desc: "Hacker uses their Private Key to decrypt the payload. They see 'demo123'!",
+              pos: "50%",
+              packet: (
+                <span className="flex items-center gap-1.5">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth="1.5"
+                    stroke="currentColor"
+                    className="w-4 h-4 shrink-0 text-slate-500"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
+                    />
+                  </svg>{" "}
+                  <span>demo123 &rarr;</span>{" "}
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth="1.5"
+                    stroke="currentColor"
+                    className="w-4 h-4 shrink-0"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
+                    />
+                  </svg>{" "}
+                  <span>[enc]</span>
+                </span>
+              ),
+              packetColor: "bg-red-100 border-red-300",
+              hackerSees: "demo123 (Stolen!)",
+            },
+            {
+              title: "Hacker Re-encrypts",
+              desc: "Hacker re-encrypts using REAL Server Key and forwards it.",
+              pos: "80%",
+              packet: (
+                <span className="flex items-center gap-1.5">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth="1.5"
+                    stroke="currentColor"
+                    className="w-4 h-4 shrink-0"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
+                    />
+                  </svg>{" "}
+                  <span>[enc]</span>
+                </span>
+              ),
+              packetColor: "bg-emerald-50 border-emerald-200",
+              hackerSees: "demo123 (Stolen!)",
+            },
+          ],
+          https: [
+            {
+              title: "Idle State",
+              desc: "Full HTTPS (Encryption + CA Certificate Authentication).",
+              packet: null,
+            },
+            {
+              title: "Server Sends Certificate",
+              desc: "Server sends its Public Key secured inside a CA-Signed Digital Certificate.",
+              pos: "80%",
+              packet: (
+                <span className="flex items-center gap-1.5">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth="1.5"
+                    stroke="currentColor"
+                    className="w-4 h-4 shrink-0"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6.75 12l-3-3m0 0l-3 3m3-3v6m-1.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
+                    />
+                  </svg>{" "}
+                  <span>CA Cert</span>
+                </span>
+              ),
+              packetColor: "bg-blue-50 border-blue-200",
+            },
+            {
+              title: "MITM Bypassed",
+              desc: "Hacker cannot forge a CA signature. They must forward the real Cert.",
+              pos: "50%",
+              packet: (
+                <span className="flex items-center gap-1.5">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth="1.5"
+                    stroke="currentColor"
+                    className="w-4 h-4 shrink-0"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6.75 12l-3-3m0 0l-3 3m3-3v6m-1.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
+                    />
+                  </svg>{" "}
+                  <span>CA Cert</span>
+                </span>
+              ),
+              packetColor: "bg-slate-200 border-slate-300",
+              hackerSees: "Cannot forge Cert",
+            },
+            {
+              title: "Client Verifies Signature",
+              desc: "Client cryptographically verifies the Certificate. Identity securely matches!",
+              pos: "20%",
+              packet: (
+                <span className="flex items-center gap-1.5">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth="1.5"
+                    stroke="currentColor"
+                    className="w-4 h-4 shrink-0"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6.75 12l-3-3m0 0l-3 3m3-3v6m-1.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
+                    />
+                  </svg>{" "}
+                  <span>CA Cert</span>
+                </span>
+              ),
+              packetColor: "bg-blue-50 border-blue-200",
+              hackerSees: "Cannot forge Cert",
+            },
+            {
+              title: "Client Encrypts Securely",
+              desc: "Client encrypts using the legitimate Server key.",
+              pos: "20%",
+              packet: (
+                <span className="flex items-center gap-1.5">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth="1.5"
+                    stroke="currentColor"
+                    className="w-4 h-4 shrink-0"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
+                    />
+                  </svg>{" "}
+                  <span>[demo123]</span>
+                </span>
+              ),
+              packetColor: "bg-indigo-100 border-indigo-300",
+              hackerSees: "Cannot forge Cert",
+            },
+            {
+              title: "MITM Blocked!",
+              desc: "Hacker sees the payload, but WITHOUT Server's Private Key, cannot read it.",
+              pos: "50%",
+              packet: (
+                <span className="flex items-center gap-1.5">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth="1.5"
+                    stroke="currentColor"
+                    className="w-4 h-4 shrink-0"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
+                    />
+                  </svg>{" "}
+                  <span>[demo123]</span>
+                </span>
+              ),
+              packetColor: "bg-indigo-100 border-indigo-300",
+              hackerSees: "Gibberish (!Xk9#)",
+            },
+            {
+              title: "Server Decrypts",
+              desc: "Server receives and decrypts safely. Data remains strictly secret.",
+              pos: "80%",
+              packet: (
+                <span className="flex items-center gap-1.5">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth="1.5"
+                    stroke="currentColor"
+                    className="w-4 h-4 shrink-0"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
+                    />
+                  </svg>{" "}
+                  <span>[demo123]</span>
+                </span>
+              ),
+              packetColor: "bg-indigo-100 border-indigo-300",
+              hackerSees: "Gibberish (!Xk9#)",
+            },
+          ],
+        };
+
+        const currentFlow = scenarios[mode];
+        const maxSteps = currentFlow.length - 1;
+        const currentStepData = currentFlow[step];
+
+        const setModeTab = (m) => {
+          setMode(m);
+          setStep(0);
+        };
+
+        return (
+          <div className="bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col h-full w-full">
+            {/* Fixed Height Header */}
+            <div className="bg-slate-900 p-4 shrink-0 flex flex-col items-center justify-center text-center">
+              <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight leading-tight">
+                The MITM Key Swap Flaw
+              </h1>
+              <p className="text-slate-400 text-xs sm:text-sm font-medium mt-1">
+                Why encryption without certificates is fatally broken
+              </p>
+            </div>
+
+            {/* Fixed Height Tabs */}
+            <div className="flex border-b border-gray-200 bg-slate-50 shrink-0 h-[60px]">
+              <button
+                onClick={() => setModeTab("http")}
+                className={`flex-1 flex flex-col justify-center items-center text-center ${mode === "http" ? "bg-white text-red-600 border-b-[3px] border-b-red-600 shadow-sm z-10" : "text-slate-500 hover:bg-slate-100"}`}
+              >
+                <div className="font-bold text-sm">1. Plain HTTP</div>
+                <div className="text-[10px] sm:text-xs">Plaintext Visible</div>
+              </button>
+              <button
+                onClick={() => setModeTab("encrypt")}
+                className={`flex-1 flex flex-col justify-center items-center border-l border-r text-center ${mode === "encrypt" ? "bg-white text-orange-500 border-b-[3px] border-b-orange-500 shadow-sm z-10" : "border-slate-200 text-slate-500 hover:bg-slate-100"}`}
+              >
+                <div className="font-bold text-sm">2. Encrypt ONLY</div>
+                <div className="text-[10px] sm:text-xs">Keys Swapped</div>
+              </button>
+              <button
+                onClick={() => setModeTab("https")}
+                className={`flex-1 flex flex-col justify-center items-center text-center ${mode === "https" ? "bg-white text-blue-600 border-b-[3px] border-b-blue-600 shadow-sm z-10" : "text-slate-500 hover:bg-slate-100"}`}
+              >
+                <div className="font-bold text-sm">3. HTTPS + CA</div>
+                <div className="text-[10px] sm:text-xs">Authenticated</div>
+              </button>
+            </div>
+
+            {/* Main Stage */}
+            <div className="flex-grow flex flex-col p-4 relative bg-white min-h-0">
+              {/* Step Description - Fixed Layout Space */}
+              <div className="h-[75px] shrink-0 flex flex-col justify-center items-center px-4 w-full bg-slate-50 border border-slate-100 rounded-xl mb-4 text-center">
+                <h2 className="text-base sm:text-lg font-bold text-slate-800 flex items-center justify-center gap-2">
+                  <span
+                    className={`w-6 h-6 rounded-full flex items-center justify-center text-xs text-white ${mode === "http" ? "bg-red-500" : mode === "encrypt" ? "bg-orange-500" : "bg-blue-500"}`}
+                  >
+                    {step + 1}
+                  </span>
+                  {currentStepData.title}
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-600 mt-1">
+                  {currentStepData.desc}
+                </p>
+              </div>
+
+              {/* Interactive Area */}
+              <div className="flex-grow rounded-xl bg-slate-50/50 border border-slate-200 relative flex items-center justify-between px-6 sm:px-12 md:px-20 min-h-[160px] overflow-hidden">
+                {/* The line */}
+                <div className="absolute top-[40%] left-[8%] right-[8%] h-1 bg-slate-300 z-0 rounded-full"></div>
+
+                {/* Client Node */}
+                <div className="relative z-10 flex flex-col items-center w-16 shrink-0 -translate-y-4">
+                  <div className="w-14 h-14 bg-white rounded-lg flex gap-0 items-center justify-center border-[3px] border-slate-300 shadow-md">
+                    <span className="text-2xl drop-shadow-sm">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth="1.5"
+                        stroke="currentColor"
+                        className="w-8 h-8 text-slate-700"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25"
+                        />
+                      </svg>
+                    </span>
+                  </div>
+                  <span className="mt-2 font-bold text-slate-700 text-xs sm:text-sm">
+                    Client
+                  </span>
+                  {/* Trusted CAs Badge */}
+                  {mode === "https" && (
+                    <div className="absolute top-full mt-6 flex flex-col items-center animate-fade-in w-full pointer-events-none z-0">
+                      <span className="text-[10px] text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 flex items-center gap-1 shadow-sm font-semibold whitespace-nowrap mt-1">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth="1.5"
+                          stroke="currentColor"
+                          className="w-3 h-3"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6.75 12l-3-3m0 0l-3 3m3-3v6m-1.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
+                          />
+                        </svg>
+                        Trusted CAs
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* MITM Node */}
+                <div className="relative z-20 flex flex-col items-center w-24 shrink-0">
+                  <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center border-[4px] border-red-500 shadow-lg relative -translate-y-4">
+                    <span className="text-3xl drop-shadow-sm z-10">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth="1.5"
+                        stroke="currentColor"
+                        className="w-10 h-10 text-red-600"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"
+                        />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                        />
+                      </svg>
+                    </span>
+                    <div className="absolute -inset-1 rounded-full border border-red-500/30 animate-pulse"></div>
+                  </div>
+                  <span className="mt-2 font-bold text-red-600 text-xs sm:text-sm whitespace-nowrap">
+                    MITM Router
+                  </span>
+                  {/* MITM Keys */}
+                  {(mode === "encrypt" || mode === "https") && (
+                    <div className="absolute top-[80px] mt-6 flex flex-col gap-1.5 w-full items-center animate-fade-in pointer-events-none z-0">
+                      <span className="text-[10px] sm:text-xs text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200 flex items-center gap-1 font-semibold whitespace-nowrap justify-center shadow-sm">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth="1.5"
+                          stroke="currentColor"
+                          className="w-3 h-3"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"
+                          />
+                        </svg>
+                        Fake PubKey
+                      </span>
+                      <span className="text-[10px] sm:text-xs text-fuchsia-700 bg-fuchsia-50 px-1.5 py-0.5 rounded border border-fuchsia-200 flex items-center gap-1 font-semibold whitespace-nowrap justify-center shadow-sm">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth="1.5"
+                          stroke="currentColor"
+                          className="w-3 h-3"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
+                          />
+                        </svg>
+                        Fake PrivKey
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Strict Absolute positioned extracted info element -> Prevents layout jumps entirely */}
+                  <div
+                    className={`absolute top-44 w-[160px] sm:w-[180px] bg-white border border-red-300 rounded shadow-md p-1.5 text-center transform transition-all duration-300 ease-out z-20 overflow-hidden ${currentStepData.hackerSees ? "opacity-100 scale-100" : "opacity-0 scale-95 pointer-events-none"}`}
+                  >
+                    <div className="font-bold text-red-800 text-[9px] uppercase tracking-wider mb-1">
+                      Extracted Payload
+                    </div>
+                    <div className="font-mono text-red-600 bg-red-50 rounded border border-red-100 px-1 py-1 text-[10px] sm:text-xs overflow-hidden text-ellipsis whitespace-nowrap">
+                      {currentStepData.hackerSees || "..."}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Server Node */}
+                <div className="relative z-10 flex flex-col items-center w-16 shrink-0 -translate-y-4">
+                  <div className="w-14 h-14 bg-white rounded-lg flex items-center justify-center border-[3px] border-slate-300 shadow-md">
+                    <span className="text-2xl drop-shadow-sm">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth="1.5"
+                        stroke="currentColor"
+                        className="w-8 h-8 text-slate-700"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M21.75 17.25v-.228a4.5 4.5 0 00-.12-1.03l-2.268-9.64a3.375 3.375 0 00-3.285-2.602H7.923a3.375 3.375 0 00-3.285 2.602l-2.268 9.64a4.5 4.5 0 00-.12 1.03v.228m19.5 0a3 3 0 01-3 3H5.25a3 3 0 01-3-3m19.5 0a3 3 0 00-3-3H5.25a3 3 0 00-3 3m16.5 0h.008v.008h-.008v-.008zm-3 0h.008v.008h-.008v-.008z"
+                        />
+                      </svg>
+                    </span>
+                  </div>
+                  <span className="mt-2 font-bold text-slate-700 text-xs sm:text-sm">
+                    Server
+                  </span>
+                  {/* Server Keys */}
+                  {(mode === "encrypt" || mode === "https") && (
+                    <div className="absolute top-full mt-6 w-full flex flex-col items-center gap-1.5 animate-fade-in pointer-events-none z-0">
+                      <span className="text-[10px] sm:text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 flex items-center gap-1 shadow-sm font-semibold whitespace-nowrap">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth="1.5"
+                          stroke="currentColor"
+                          className="w-3 h-3"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"
+                          />
+                        </svg>
+                        Public Key
+                      </span>
+                      <span className="text-[10px] sm:text-xs text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200 flex items-center gap-1 shadow-sm font-semibold whitespace-nowrap">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth="1.5"
+                          stroke="currentColor"
+                          className="w-3 h-3"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
+                          />
+                        </svg>
+                        Private Key
+                      </span>
+                      {mode === "https" && (
+                        <span className="text-[10px] sm:text-xs text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 flex items-center gap-1 shadow-sm font-semibold whitespace-nowrap mt-0.5">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth="1.5"
+                            stroke="currentColor"
+                            className="w-3 h-3"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6.75 12l-3-3m0 0l-3 3m3-3v6m-1.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
+                            />
+                          </svg>
+                          CA Signed
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Animated Packet */}
+                {currentStepData.packet && (
+                  <div
+                    className={`absolute top-[40%] z-30 packet font-mono text-[11px] sm:text-xs font-bold px-3 py-1.5 rounded-full shadow border-2 transform -translate-x-1/2 -translate-y-1/2 whitespace-nowrap flex items-center gap-1.5 ${currentStepData.packetColor}`}
+                    style={{ left: currentStepData.pos }}
+                  >
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full ${mode === "http" && step === 2 ? "bg-red-500" : currentStepData.packetColor.includes("red") ? "bg-red-500" : currentStepData.packetColor.includes("blue") || currentStepData.packetColor.includes("emerald") || currentStepData.packetColor.includes("indigo") ? "bg-emerald-500" : "bg-slate-400"}`}
+                    ></span>
+                    {currentStepData.packet}
+                  </div>
+                )}
+              </div>
+
+              {/* Fixed Controls Footer */}
+              <div className="h-[60px] shrink-0 flex items-center justify-center gap-2 sm:gap-4 mt-4">
+                <button
+                  onClick={() => setStep(0)}
+                  className="px-3 py-2 sm:px-4 sm:py-2.5 rounded shadow-sm font-bold text-slate-600 bg-white border border-slate-300 hover:bg-slate-100 text-xs sm:text-sm transition-colors focus:ring-2 focus:ring-slate-200"
+                >
+                  <div className="flex items-center gap-1">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth="2"
+                      stroke="currentColor"
+                      className="w-4 h-4"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
+                      />
+                    </svg>{" "}
+                    Replay
+                  </div>
+                </button>
+                <button
+                  onClick={() => step > 0 && setStep(step - 1)}
+                  disabled={step === 0}
+                  className={`px-4 py-2 sm:px-5 sm:py-2.5 rounded shadow-sm font-bold text-xs sm:text-sm min-w-[90px] transition-colors focus:ring-2 ${step === 0 ? "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed shadow-none" : "bg-white text-slate-700 border border-slate-300 hover:bg-slate-100 focus:ring-slate-200"}`}
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth="2"
+                      stroke="currentColor"
+                      className="w-4 h-4"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"
+                      />
+                    </svg>{" "}
+                    Prev
+                  </div>
+                </button>
+                <button
+                  onClick={() => step < maxSteps && setStep(step + 1)}
+                  disabled={step === maxSteps}
+                  className={`px-4 py-2 sm:px-5 sm:py-2.5 rounded shadow-sm font-bold text-white text-xs sm:text-sm min-w-[110px] transition-colors focus:ring-2 ${step === maxSteps ? "bg-slate-300 cursor-not-allowed text-slate-500 shadow-none" : mode === "http" ? "bg-red-600 hover:bg-red-500 focus:ring-red-200" : mode === "encrypt" ? "bg-orange-500 hover:bg-orange-400 focus:ring-orange-200" : "bg-blue-600 hover:bg-blue-500 focus:ring-blue-200"}`}
+                >
+                  {step === maxSteps ? (
+                    "End "
+                  ) : (
+                    <div className="flex items-center justify-center gap-1">
+                      Next{" "}
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth="2"
+                        stroke="currentColor"
+                        className="w-4 h-4"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"
+                        />
+                      </svg>
+                    </div>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      const root = ReactDOM.createRoot(document.getElementById("root"));
+      root.render(<App />);
+    </script>
+  </body>
+</html>

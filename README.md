@@ -1,57 +1,74 @@
 # HTTP vs HTTPS Demo
 
-A simple demonstration website to show the difference between HTTP and HTTPS protocols, with login and signup functionality.
+This project is a demonstration web app that shows the difference between HTTP and HTTPS. It includes a simple login/signup UI and a request inspector to illustrate how data is transmitted over each protocol.
 
-## Features
-- **Dual Protocol Support**: Run on both HTTP (port 3000) and HTTPS (port 3443)
-- **Login & Signup Forms**: Simple authentication interface
-- **Request Inspector**: See the data being sent in real-time
-- **Visual Indicators**: Clear warnings about security levels
-- **Comparison Table**: HTTP vs HTTPS feature comparison
+## What this demo shows
 
-## Getting Started
+- HTTP traffic on `http://localhost:3000`
+- HTTPS traffic on `https://localhost:3443`
+- A login form and signup form that submit data to `/api/login` and `/api/signup`
+- A request inspector that displays whether the current request is secure and whether the traffic is encrypted
+- A secondary animated demo page at `/anim`
+- Clear visual messaging showing that HTTP is unencrypted and HTTPS is encrypted
 
-### Prerequisites
-- Node.js (v14 or higher)
+## Project structure
+
+- `server.js` – Express server that serves the demo pages and API endpoints
+- `public/` – static frontend files for the UI
+- `public/anim.html` – animated demo page loaded at `/anim`
+- `package.json` – project metadata and npm scripts
+- `private.key`, `certificate.crt` – self-signed SSL certificate files (generated via npm script)
+
+## Prerequisites
+
+- Node.js v14 or higher
 - npm
 
-### Installation
+## Setup and run
 
-1. Install dependencies:
+1. Open a terminal in the `http` directory.
+2. Install dependencies:
+
+```bash
 npm install
-app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+```
 
-app.post('/api/login', (req, res) => {
-    const { email, password } = req.body;
-    console.log(`[LOGIN] Received over ${req.protocol}: email=${email}, password=${password}`);
-    res.json({ success: true, message: 'Login successful' });
-});
+3. Generate a local self-signed certificate for HTTPS. This uses OpenSSL via the npm script to create `private.key` and `certificate.crt` for `localhost`:
 
-app.post('/api/signup', (req, res) => {
-    const { email, password } = req.body;
-    console.log(`[SIGNUP] Received over ${req.protocol}: email=${email}, password=${password}`);
-    res.json({ success: true, message: 'Signup successful' });
-});
+```bash
+npm run generate-cert
+```
 
-const HTTP_PORT = 3000;
-http.createServer(app).listen(HTTP_PORT, () => {
-    console.log(` HTTP Server running on http://localhost:${HTTP_PORT}`);
-    console.log(`     WARNING: Data sent over HTTP is NOT encrypted and visible in plain text!`);
-});
+4. Start the demo server:
 
-const HTTPS_PORT = 3443;
-try {
-    const privateKey = fs.readFileSync('private.key', 'utf8');
-    const certificate = fs.readFileSync('certificate.crt', 'utf8');
-    const credentials = { key: privateKey, cert: certificate };
-    
-    https.createServer(credentials, app).listen(HTTPS_PORT, () => {
-        console.log(` HTTPS Server running on https://localhost:${HTTPS_PORT}`);
-        console.log(`    All data sent over HTTPS is encrypted and secure!`);
-    });
-} catch (error) {
-    console.log(`\n Could not start HTTPS server: ${error.message}`);
-    console.log(` Please run 'npm run generate-cert' to create the required SSL certificates.\n`);
-}
-# HTTPS_wireshark
+```bash
+npm start
+```
+
+5. Open the demo in your browser:
+
+- HTTP: `http://localhost:3000`
+- HTTPS: `https://localhost:3443`
+
+> When using HTTPS locally, your browser may show a self-signed certificate warning. Accept or proceed to the page to continue.
+
+## Notes
+
+- The HTTPS server only starts if `private.key` and `certificate.crt` exist.
+- The demo uses in-memory storage for users, so all signups are temporary and reset when the server restarts.
+- This project is for educational purposes only and does not use production authentication or secure storage.
+
+## Scripts
+
+- `npm install` – install project dependencies
+- `npm run generate-cert` – create a self-signed SSL certificate for local HTTPS testing
+- `npm start` – start the server with `nodemon`
+
+## How it works
+
+- `server.js` creates both an HTTP server and an HTTPS server using Express.
+- Express serves the static demo UI from the `public/` folder and the additional animation page at `/anim`.
+- API endpoints use JSON body parsing to accept login and signup requests.
+- The HTTPS server loads `private.key` and `certificate.crt` from the project root.
+- The app logs a warning message for HTTP requests and confirms encryption for HTTPS requests.
+
